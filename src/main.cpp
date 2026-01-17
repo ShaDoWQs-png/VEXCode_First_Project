@@ -1,6 +1,50 @@
 #include "main.h"
 #include "lemlib/api.hpp"
 
+pros::MotorGroup left_motor({1});   // Left motor on port 1
+pros::MotorGroup right_motor({-2}); // Right motor on port 2, reversed
+pros::Imu inertial(10);  // Imu on port 10
+pros::Rotation yEnc(1);  // Rotation sensor on port 1
+pros::Rotation xEnc(2);  // Rotation sensor on port 2
+
+lemlib::TrackingWheel vertWheel(&yEnc, lemlib::Omniwheel::NEW_275, -5);    // Vertical tracking wheel with 2.75" diameter, 5 inches left of center
+lemlib::TrackingWheel horizWheel(&xEnc, lemlib::Omniwheel::NEW_275, -2);  // Horizontal tracking wheel with 2.75" diameter, 2 inches behind center
+
+lemlib::OdomSensors odomSensors(&vertWheel, nullptr, &horizWheel, nullptr, &inertial);
+lemlib::Drivetrain drivetrain(&left_motor, &right_motor, 12, lemlib::Omniwheel::NEW_275, 200, 2);
+lemlib::ControllerSettings linContrSettings(
+		10, // Proportional
+        0, // Integral
+        3, // Derivative
+
+        3, // Integral anti windup range
+        1, 	// Small error range (in.)
+        100, // Small error range timeout (ms)
+        3, // Large error range (in.)
+        500, // Large error range timeout (ms)
+        5 // Maximum acceleration (slew)
+);
+lemlib::ControllerSettings angContrSettings(
+		10,
+        0,
+        3,
+
+        3,
+        1,
+        100,
+        3,
+        500,
+        5
+);
+
+lemlib::Chassis chassis(
+	drivetrain,
+	linContrSettings,
+	angContrSettings,
+	odomSensors,
+	nullptr
+);
+
 /**
  * A callback function for LLEMU's center button.
  *
@@ -28,6 +72,8 @@ void initialize() {
 	pros::lcd::set_text(1, "Hello PROS User!");
 
 	pros::lcd::register_btn1_cb(on_center_button);
+
+
 }
 
 /**
