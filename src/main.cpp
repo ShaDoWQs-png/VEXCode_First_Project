@@ -73,7 +73,12 @@ void initialize() {
 
 	pros::lcd::register_btn1_cb(on_center_button);
 
+	inertial.reset();
+	while(inertial.is_calibrating()) {
+		pros::delay(10);
+	}
 
+	chassis.calibrate();
 }
 
 /**
