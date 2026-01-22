@@ -1,53 +1,15 @@
 #include "main.h"
-#include "lemlib/api.hpp"
+#include "pros/imu.hpp"
 
-pros::MotorGroup left_motor({1});   // Left motor on port 1
-pros::MotorGroup right_motor({-2}); // Right motor on port 2, reversed
-pros::Imu inertial(10);  // Imu on port 10
-pros::Rotation yEnc(1);  // Rotation sensor on port 1
-pros::Rotation xEnc(2);  // Rotation sensor on port 2
-
-lemlib::TrackingWheel vertWheel(&yEnc, lemlib::Omniwheel::NEW_275, -5);    // Vertical tracking wheel with 2.75" diameter, 5 inches left of center
-lemlib::TrackingWheel horizWheel(&xEnc, lemlib::Omniwheel::NEW_275, -2);  // Horizontal tracking wheel with 2.75" diameter, 2 inches behind center
-
-lemlib::OdomSensors odomSensors(&vertWheel, nullptr, &horizWheel, nullptr, &inertial);
-lemlib::Drivetrain drivetrain(&left_motor, &right_motor, 12, lemlib::Omniwheel::NEW_275, 200, 2);
-lemlib::ControllerSettings linContrSettings(
-		10, // Proportional
-        0, // Integral
-        3, // Derivative
-
-        3, // Integral anti windup range
-        1, 	// Small error range (in.)
-        100, // Small error range timeout (ms)
-        3, // Large error range (in.)
-        500, // Large error range timeout (ms)
-        5 // Maximum acceleration (slew)
-);
-lemlib::ControllerSettings angContrSettings(
-		10,
-        0,
-        3,
-
-        3,
-        1,
-        100,
-        3,
-        500,
-        5
-);
-
-lemlib::Chassis chassis(
-	drivetrain,
-	linContrSettings,
-	angContrSettings,
-	odomSensors,
-	nullptr
-);
+pros::Controller controller(pros::E_CONTROLLER_MASTER);
+pros::MotorGroup left_motor({8, 9, 10});  // Left motor on port 1
+pros::MotorGroup right_motor({1, 2, 3}); // Right motor on port 2, reversed
+pros::Imu inertial(4);
 
 /**
  * A callback function for LLEMU's center button.
  *
+
  * When this callback is fired, it will toggle line 2 of the LCD text between
  * "I was pressed!" and nothing.
  */
@@ -73,13 +35,15 @@ void initialize() {
 
 	pros::lcd::register_btn1_cb(on_center_button);
 
+	//right_motor.set_reversed(true, 0);
+	//left_motor.set_reversed(true, 0);
+
+	/*
 	inertial.reset();
 	while(inertial.is_calibrating()) {
 		pros::delay(10);
 	}
-
-	chassis.calibrate();
-	chassis.setPose(0, 0, 0);
+	*/
 }
 
 /**
@@ -127,21 +91,16 @@ void autonomous() {}
  * task, not resume it from where it left off.
  */
 void opcontrol() {
-	pros::Controller master(pros::E_CONTROLLER_MASTER);
-	pros::MotorGroup left_mg({1, -2, 3});    // Creates a motor group with forwards ports 1 & 3 and reversed port 2
-	pros::MotorGroup right_mg({-4, 5, -6});  // Creates a motor group with forwards port 5 and reversed ports 4 & 6
-
-
 	while (true) {
 		pros::lcd::print(0, "%d %d %d", (pros::lcd::read_buttons() & LCD_BTN_LEFT) >> 2,
 		                 (pros::lcd::read_buttons() & LCD_BTN_CENTER) >> 1,
 		                 (pros::lcd::read_buttons() & LCD_BTN_RIGHT) >> 0);  // Prints status of the emulated screen LCDs
 
 		// Arcade control scheme
-		int dir = master.get_analog(ANALOG_LEFT_Y);    // Gets amount forward/backward from left joystick
-		int turn = master.get_analog(ANALOG_RIGHT_X);  // Gets the turn left/right from right joystick
-		left_mg.move(dir - turn);                      // Sets left motor voltage
-		right_mg.move(dir + turn);                     // Sets right motor voltage
+		int dir = controller.get_analog(ANALOG_LEFT_X);    // Gets amount forward/backward from left joystick
+		int turn = controller.get_analog(ANALOG_RIGHT_Y);  // Gets the turn left/right from right joystick
+		left_motor.move(dir - turn);                      // Sets left motor voltage
+		right_motor.move(dir + turn);                     // Sets right motor voltage
 		pros::delay(20);                               // Run for 20 ms then update
 	}
 }
