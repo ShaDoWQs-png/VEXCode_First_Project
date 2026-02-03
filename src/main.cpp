@@ -134,10 +134,17 @@ void opcontrol() {
 		                 (pros::lcd::read_buttons() & LCD_BTN_RIGHT) >> 0);  // Prints status of the emulated screen LCDs
 
 		// Arcade control scheme
-		int turn = controller.get_analog(ANALOG_LEFT_Y);    // Gets amount forward/backward from left joystick
-		int dir = controller.get_analog(ANALOG_RIGHT_X);  // Gets the turn left/right from right joystick
-		left_mg.move(dir - turn);                      // Sets left motor voltage
-		right_mg.move(dir + turn);                     // Sets right motor voltage
+		/*int dir = -(controller.get_analog(ANALOG_LEFT_Y));    // Gets amount forward/backward from left joystick
+		int turn = -(controller.get_analog(ANALOG_RIGHT_X));  // Gets the turn left/right from right joystick
+		left_mg.move((dir - turn));                      // Sets left motor voltage
+		right_mg.move((dir + turn));                     // Sets right motor voltage
+		*/
+		int dir = controller.get_analog(ANALOG_RIGHT_X);
+		int turn = controller.get_analog(ANALOG_LEFT_Y);
+		left_mg.move(dir + turn);
+		right_mg.move(dir - turn);
+
+
 		std::cout << "X: " << chassis.getPose().x << " Y: " << chassis.getPose().y << " A: " << chassis.getPose().theta << std::endl;
 		pros::delay(20);                               // Run for 20 ms then update
 	}
