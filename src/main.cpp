@@ -1,12 +1,18 @@
 #include "main.h"
 #include "./lemlib/api.hpp"
+#include "lemlib/chassis/chassis.hpp"
 
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
-pros::MotorGroup left_mg({8, 9, 10});  // Left motor on port 1
-pros::MotorGroup right_mg({1, 2, 3}); // Right motor on port 2, reversed
+
+pros::MotorGroup left_mg({8, 9, 10});
+pros::MotorGroup right_mg({1, 2, 3});
+
 pros::Imu inertial(4);
 pros::Rotation yEnc(6);  // Rotation sensor on port 1
 pros::Rotation xEnc(7);  // Rotation sensor on port 2
+
+lemlib::ExpoDriveCurve driveCurve(5, 20, 1.15);
+lemlib::ExpoDriveCurve turnCurve(5, 20, 1.15);
 
 lemlib::TrackingWheel vertWheel(&yEnc, lemlib::Omniwheel::NEW_275, -5);    // Vertical tracking wheel with 2.75" diameter, 5 inches left of center
 lemlib::TrackingWheel horizWheel(&xEnc, lemlib::Omniwheel::NEW_275, -2);  // Horizontal tracking wheel with 2.75" diameter, 2 inches behind center
@@ -43,7 +49,8 @@ lemlib::Chassis chassis(
 	linContrSettings,
 	angContrSettings,
 	odomSensors,
-	nullptr
+	&driveCurve,
+	&turnCurve
 );
 
 /**
@@ -73,6 +80,10 @@ void initialize() {
 	pros::lcd::set_text(1, "Hello PROS User!");
 
 	pros::lcd::register_btn1_cb(on_center_button);
+
+	left_mg.set_reversed(true, 0);
+	left_mg.set_reversed(true, 1);
+	left_mg.set_reversed(true, 2);
 
 	inertial.reset();
 	while(inertial.is_calibrating()) {
@@ -128,24 +139,12 @@ void autonomous() {}
  * task, not resume it from where it left off.
  */
 void opcontrol() {
-	while (true) {
-		pros::lcd::print(0, "%d %d %d", (pros::lcd::read_buttons() & LCD_BTN_LEFT) >> 2,
-		                 (pros::lcd::read_buttons() & LCD_BTN_CENTER) >> 1,
-		                 (pros::lcd::read_buttons() & LCD_BTN_RIGHT) >> 0);  // Prints status of the emulated screen LCDs
-
-		// Arcade control scheme
-		/*int dir = -(controller.get_analog(ANALOG_LEFT_Y));    // Gets amount forward/backward from left joystick
-		int turn = -(controller.get_analog(ANALOG_RIGHT_X));  // Gets the turn left/right from right joystick
-		left_mg.move((dir - turn));                      // Sets left motor voltage
-		right_mg.move((dir + turn));                     // Sets right motor voltage
-		*/
-		int dir = controller.get_analog(ANALOG_RIGHT_X);
+	while(true){
 		int turn = controller.get_analog(ANALOG_LEFT_Y);
-		left_mg.move(dir + turn);
-		right_mg.move(dir - turn);
+		int dir = controller.get_analog(ANALOG_RIGHT_X);
+		chassis.arcade(turn, dir, false);
 
-
-		std::cout << "X: " << chassis.getPose().x << " Y: " << chassis.getPose().y << " A: " << chassis.getPose().theta << std::endl;
-		pros::delay(20);                               // Run for 20 ms then update
+		std::cout << dir << " / " << turn << std::endl;
+		pros::delay(20);
 	}
 }
