@@ -1,10 +1,57 @@
 #include "main.h"
-#include "pros/imu.hpp"
+#include "./lemlib/api.hpp"
+#include "lemlib/chassis/chassis.hpp"
 
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
-pros::MotorGroup left_motor({8, 9, 10});  // Left motor on port 1
-pros::MotorGroup right_motor({1, 2, 3}); // Right motor on port 2, reversed
+
+pros::MotorGroup left_mg({8, 9, 10});
+pros::MotorGroup right_mg({1, 2, 3});
+
 pros::Imu inertial(4);
+pros::Rotation yEnc(6);  // Rotation sensor on port 1
+pros::Rotation xEnc(7);  // Rotation sensor on port 2
+
+lemlib::ExpoDriveCurve driveCurve(5, 20, 1.15);
+lemlib::ExpoDriveCurve turnCurve(5, 20, 1.15);
+
+lemlib::TrackingWheel vertWheel(&yEnc, lemlib::Omniwheel::NEW_275, -5);    // Vertical tracking wheel with 2.75" diameter, 5 inches left of center
+lemlib::TrackingWheel horizWheel(&xEnc, lemlib::Omniwheel::NEW_275, -2);  // Horizontal tracking wheel with 2.75" diameter, 2 inches behind center
+
+lemlib::OdomSensors odomSensors(&vertWheel, nullptr, &horizWheel, nullptr, &inertial);
+lemlib::Drivetrain drivetrain(&left_mg, &right_mg, 12, lemlib::Omniwheel::NEW_275, 200, 2);
+lemlib::ControllerSettings linContrSettings(
+		10, // Proportional
+        0, // Integral
+        3, // Derivative
+
+        3, // Integral anti windup range
+        1, 	// Small error range (in.)
+        100, // Small error range timeout (ms)
+        3, // Large error range (in.)
+        500, // Large error range timeout (ms)
+        5 // Maximum acceleration (slew)
+);
+lemlib::ControllerSettings angContrSettings(
+		10,
+        0,
+        3,
+
+        3,
+        1,
+        100,
+        3,
+        500,
+        5
+);
+
+lemlib::Chassis chassis(
+	drivetrain,
+	linContrSettings,
+	angContrSettings,
+	odomSensors,
+	&driveCurve,
+	&turnCurve
+);
 
 /**
  * A callback function for LLEMU's center button.
@@ -35,10 +82,10 @@ void initialize() {
 
 	pros::lcd::register_btn1_cb(on_center_button);
 
-	//right_motor.set_reversed(true, 0);
-	//left_motor.set_reversed(true, 0);
+	left_mg.set_reversed(true, 0);
+	left_mg.set_reversed(true, 1);
+	left_mg.set_reversed(true, 2);
 
-	/*
 	inertial.reset();
 	while(inertial.is_calibrating()) {
 		pros::delay(10);
@@ -91,16 +138,12 @@ void autonomous() {}
  * task, not resume it from where it left off.
  */
 void opcontrol() {
-	while (true) {
-		pros::lcd::print(0, "%d %d %d", (pros::lcd::read_buttons() & LCD_BTN_LEFT) >> 2,
-		                 (pros::lcd::read_buttons() & LCD_BTN_CENTER) >> 1,
-		                 (pros::lcd::read_buttons() & LCD_BTN_RIGHT) >> 0);  // Prints status of the emulated screen LCDs
+	while(true){
+		int turn = controller.get_analog(ANALOG_LEFT_Y);
+		int dir = controller.get_analog(ANALOG_RIGHT_X);
+		chassis.arcade(turn, dir, false);
 
-		// Arcade control scheme
-		int dir = controller.get_analog(ANALOG_LEFT_X);    // Gets amount forward/backward from left joystick
-		int turn = controller.get_analog(ANALOG_RIGHT_Y);  // Gets the turn left/right from right joystick
-		left_motor.move(dir - turn);                      // Sets left motor voltage
-		right_motor.move(dir + turn);                     // Sets right motor voltage
-		pros::delay(20);                               // Run for 20 ms then update
+		std::cout << dir << " / " << turn << std::endl;
+		pros::delay(20);
 	}
 }
