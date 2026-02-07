@@ -1,47 +1,51 @@
 #include "main.h"
-#include "./lemlib/api.hpp"
-#include "lemlib/chassis/chassis.hpp"
+#include "lemlib/api.hpp"
 
+// ---- PROS OBJECTS ----
+// controller
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
 
-pros::MotorGroup left_mg({8, 9, 10});
-pros::MotorGroup right_mg({1, 2, 3});
+// motor groups
+pros::MotorGroup left_mg({-8, -9, -10}, pros::MotorGearset::blue);
+pros::MotorGroup right_mg({1, 2, 3}, pros::MotorGearset::blue);
 
+// sensors
 pros::Imu inertial(4);
 pros::Rotation yEnc(6);  // Rotation sensor on port 1
 pros::Rotation xEnc(7);  // Rotation sensor on port 2
 
-lemlib::ExpoDriveCurve driveCurve(5, 20, 1.15);
-lemlib::ExpoDriveCurve turnCurve(5, 20, 1.15);
+// drive curves
+lemlib::ExpoDriveCurve driveCurve(5, 20, 1.05);
+lemlib::ExpoDriveCurve turnCurve(5, 20, 1.05);
 
-lemlib::TrackingWheel vertWheel(&yEnc, lemlib::Omniwheel::NEW_275, -5);    // Vertical tracking wheel with 2.75" diameter, 5 inches left of center
-lemlib::TrackingWheel horizWheel(&xEnc, lemlib::Omniwheel::NEW_275, -2);  // Horizontal tracking wheel with 2.75" diameter, 2 inches behind center
+// ---- LEMLIB OBJECTS ----
+// odometry object definitions
+lemlib::TrackingWheel vertWheel(&yEnc, lemlib::Omniwheel::NEW_2, 3.5);    // Vertical tracking wheel with 2.75" diameter, 5 inches left of center
+lemlib::TrackingWheel horizWheel(&xEnc, lemlib::Omniwheel::NEW_2, 0);  // Horizontal tracking wheel with 2.75" diameter, 2 inches behind center
 
 lemlib::OdomSensors odomSensors(&vertWheel, nullptr, &horizWheel, nullptr, &inertial);
-lemlib::Drivetrain drivetrain(&left_mg, &right_mg, 12, lemlib::Omniwheel::NEW_275, 200, 2);
+lemlib::Drivetrain drivetrain(&left_mg, &right_mg, 12.75, lemlib::Omniwheel::NEW_325, 600, 2);
 lemlib::ControllerSettings linContrSettings(
-		10, // Proportional
-        0, // Integral
-        3, // Derivative
-
-        3, // Integral anti windup range
-        1, 	// Small error range (in.)
-        100, // Small error range timeout (ms)
-        3, // Large error range (in.)
-        500, // Large error range timeout (ms)
-        5 // Maximum acceleration (slew)
+		10, // proportional gain (kP)
+        0, // integral gain (kI)
+        3, // derivative gain (kD)
+        3, // anti windup
+        1, // small error range, in inches
+        100, // small error range timeout, in milliseconds
+        3, // large error range, in inches
+        500, // large error range timeout, in milliseconds
+        20 // maximum acceleration (slew)
 );
 lemlib::ControllerSettings angContrSettings(
 		10,
         0,
         3,
-
         3,
         1,
         100,
         3,
         500,
-        5
+        20
 );
 
 lemlib::Chassis chassis(
@@ -82,15 +86,20 @@ void initialize() {
 
 	pros::lcd::register_btn1_cb(on_center_button);
 
+	xEnc.reset();
+	yEnc.reset();
+
 	left_mg.set_reversed(true, 0);
 	left_mg.set_reversed(true, 1);
 	left_mg.set_reversed(true, 2);
+
 
 	inertial.reset();
 	while(inertial.is_calibrating()) {
 		pros::delay(10);
 	}
-	*/
+
+	chassis.calibrate();
 }
 
 /**
@@ -139,11 +148,16 @@ void autonomous() {}
  */
 void opcontrol() {
 	while(true){
+		lemlib::Pose pose = chassis.getPose();
 		int turn = controller.get_analog(ANALOG_LEFT_Y);
 		int dir = controller.get_analog(ANALOG_RIGHT_X);
 		chassis.arcade(turn, dir, false);
 
-		std::cout << dir << " / " << turn << std::endl;
+		/*if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_A)) {
+			chassis.moveToPoint(0, 0, 0);
+		}*/
+
+		printf("X: %f, Y: %f, Theta: %f\n", xEnc.get_position(), yEnc.get_position());
 		pros::delay(20);
 	}
 }
